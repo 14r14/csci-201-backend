@@ -48,6 +48,9 @@ public class User {
     @Column(name = "last_login_timestamp")
     private Instant lastLoginTimestamp;
 
+    @Column(name = "created_timestamp")
+    private Instant createdTimestamp;
+
     public Long getUserId() {
         return userId;
     }
@@ -118,5 +121,13 @@ public class User {
 
     public void setLastLoginTimestamp(Instant lastLoginTimestamp) {
         this.lastLoginTimestamp = lastLoginTimestamp;
+    }
+
+    public Instant getCreatedTimestamp() {
+        return createdTimestamp;
+    }
+
+    public void setCreatedTimestamp(Instant createdTimestamp) {
+        this.createdTimestamp = createdTimestamp;
     }
 }
