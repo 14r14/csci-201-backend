@@ -3,6 +3,7 @@ package com.csci201.backend.repository;
 import com.csci201.backend.entity.Reservation;
 import com.csci201.backend.entity.enums.ReservationStatus;
 import java.time.Instant;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,4 +16,12 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             @Param("status") ReservationStatus status,
             @Param("startTime") Instant startTime,
             @Param("endTime") Instant endTime);
+
+    boolean existsByRoom_RoomIdAndStartTimeAndStatus(
+            Long roomId,
+            Instant startTime,
+            ReservationStatus status
+    );
+
+    List<Reservation> findByUser_UserIdOrderByStartTimeDesc(Long userId);
 }
