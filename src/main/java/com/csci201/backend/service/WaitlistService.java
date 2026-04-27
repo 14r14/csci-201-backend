@@ -118,11 +118,31 @@ public class WaitlistService {
 
     @Transactional
     public void leaveWaitlist(Long waitlistId) {
-        if (!waitlistEntryRepository.existsById(waitlistId)) {
-            throw new IllegalArgumentException("Waitlist entry not found.");
-        }
+        WaitlistEntry entry = waitlistEntryRepository.findById(waitlistId)
+                .orElseThrow(() -> new IllegalArgumentException("Waitlist entry not found."));
 
-        waitlistEntryRepository.deleteById(waitlistId);
+        Long roomId = entry.getRoom().getRoomId();
+        String timeSlot = entry.getRequestedTimeSlot();
+        Integer position = entry.getQueuePosition();
+
+        waitlistEntryRepository.delete(entry);
+        waitlistEntryRepository.decrementPositionsAfter(roomId, timeSlot, position);
+    }
+
+    @Transactional
+    public List<WaitlistResponse> getWaitlistByUser(Long userId) {
+        return waitlistEntryRepository.findByUser_UserIdOrderByCreatedTimestampDesc(userId).stream()
+                .map(e -> new WaitlistResponse(
+                        e.getWaitlistId(),
+                        e.getUser().getUserId(),
+                        e.getRoom().getRoomId(),
+                        e.getRequestedTimeSlot(),
+                        e.getQueuePosition(),
+                        waitlistEntryRepository.countByRoom_RoomIdAndRequestedTimeSlot(
+                                e.getRoom().getRoomId(), e.getRequestedTimeSlot()),
+                        null
+                ))
+                .toList();
     }
 
     @Transactional
@@ -150,7 +170,9 @@ public class WaitlistService {
 
         Reservation savedReservation = reservationRepository.save(newReservation);
 
+        Integer promotedPosition = nextEntry.getQueuePosition();
         waitlistEntryRepository.delete(nextEntry);
+        waitlistEntryRepository.decrementPositionsAfter(roomId, requestedTimeSlot, promotedPosition);
 
         return savedReservation;
     }

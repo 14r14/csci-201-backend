@@ -11,6 +11,8 @@ import com.csci201.backend.repository.ReservationRepository;
 import com.csci201.backend.repository.RoomRepository;
 import com.csci201.backend.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
+import java.util.List;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,13 +22,16 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
+    private final WaitlistService waitlistService;
 
     public ReservationService(ReservationRepository reservationRepository,
                               RoomRepository roomRepository,
-                              UserRepository userRepository) {
+                              UserRepository userRepository,
+                              @Lazy WaitlistService waitlistService) {
         this.reservationRepository = reservationRepository;
         this.roomRepository = roomRepository;
         this.userRepository = userRepository;
+        this.waitlistService = waitlistService;
     }
 
     @Transactional
@@ -56,6 +61,32 @@ public class ReservationService {
 
         reservation = reservationRepository.save(reservation);
         return toResponse(reservation);
+    }
+
+    @Transactional
+    public ReservationResponse cancelReservation(Long id) {
+        Reservation reservation = reservationRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Reservation not found: " + id));
+
+        if (reservation.getStatus() == ReservationStatus.CANCELLED) {
+            throw new IllegalArgumentException("Reservation is already cancelled.");
+        }
+
+        reservation.setStatus(ReservationStatus.CANCELLED);
+        reservation = reservationRepository.save(reservation);
+
+        waitlistService.promoteNextUserIfAvailable(reservation);
+
+        return toResponse(reservation);
+    }
+
+    public List<ReservationResponse> getReservationsByUser(Long userId) {
+        if (!userRepository.existsById(userId)) {
+            throw new EntityNotFoundException("User not found: " + userId);
+        }
+        return reservationRepository.findByUser_UserIdOrderByStartTimeDesc(userId).stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     private ReservationResponse toResponse(Reservation r) {

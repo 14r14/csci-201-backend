@@ -51,4 +51,9 @@ public class WaitlistController {
         waitlistService.leaveWaitlist(waitlistId);
         return ResponseEntity.ok("Waitlist entry removed.");
     }
+
+    @GetMapping
+    public ResponseEntity<List<WaitlistResponse>> getWaitlistByUser(@RequestParam Long userId) {
+        return ResponseEntity.ok(waitlistService.getWaitlistByUser(userId));
+    }
 }
