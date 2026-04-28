@@ -15,6 +15,7 @@ import java.util.List;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.Objects;
 
 @Service
 public class ReservationService {
@@ -36,30 +37,12 @@ public class ReservationService {
 
     @Transactional
     public ReservationResponse bookRoom(BookRoomRequest request) {
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + request.getUserId()));
+        Long userId = Objects.requireNonNull(request.getUserId(), "userId is required");
+        Long roomId = Objects.requireNonNull(request.getRoomId(), "roomId is required");
 
-        Room room = roomRepository.findById(request.getRoomId())
-                .orElseThrow(() -> new EntityNotFoundException("Room not found: " + request.getRoomId()));
-
-        if (!request.getStartTime().isBefore(request.getEndTime())) {
-            throw new IllegalArgumentException("startTime must be before endTime");
-        }
-
-        if (reservationRepository.existsOverlappingReservation(
-                room.getRoomId(), ReservationStatus.CONFIRMED,
-                request.getStartTime(), request.getEndTime())) {
-            throw new RoomNotAvailableException("Room is already booked for the requested time slot");
-        }
-
-        Reservation reservation = new Reservation();
-        reservation.setUser(user);
-        reservation.setRoom(room);
-        reservation.setStartTime(request.getStartTime());
-        reservation.setEndTime(request.getEndTime());
-        reservation.setStatus(ReservationStatus.CONFIRMED);
-
-        reservation = reservationRepository.save(reservation);
+        User user = requireUser(userId);
+        Room room = requireRoom(roomId);
+        Reservation reservation = createConfirmedReservation(user, room, request.getStartTime(), request.getEndTime());
         return toResponse(reservation);
     }
 
@@ -89,7 +72,33 @@ public class ReservationService {
                 .toList();
     }
 
-    private ReservationResponse toResponse(Reservation r) {
+    public User requireUser(Long userId) {
+        return userRepository.findById(Objects.requireNonNull(userId, "userId is required"))
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+    }
+
+    public Room requireRoom(Long roomId) {
+        return roomRepository.findById(Objects.requireNonNull(roomId, "roomId is required"))
+                .orElseThrow(() -> new EntityNotFoundException("Room not found: " + roomId));
+    }
+
+    public Reservation createConfirmedReservation(User user, Room room, java.time.Instant startTime, java.time.Instant endTime) {
+        if (!startTime.isBefore(endTime)) {
+            throw new IllegalArgumentException("startTime must be before endTime");
+        }
+        if (reservationRepository.existsOverlappingReservation(room.getRoomId(), ReservationStatus.CONFIRMED, startTime, endTime)) {
+            throw new RoomNotAvailableException("Room is already booked for the requested time slot");
+        }
+        Reservation reservation = new Reservation();
+        reservation.setUser(user);
+        reservation.setRoom(room);
+        reservation.setStartTime(startTime);
+        reservation.setEndTime(endTime);
+        reservation.setStatus(ReservationStatus.CONFIRMED);
+        return reservationRepository.save(reservation);
+    }
+
+    public ReservationResponse toResponse(Reservation r) {
         ReservationResponse response = new ReservationResponse();
         response.setReservationId(r.getReservationId());
         response.setUserId(r.getUser().getUserId());
