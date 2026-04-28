@@ -11,6 +11,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
 @Table(name = "user_matches")
@@ -38,6 +39,10 @@ public class UserMatch {
     @CreationTimestamp
     @Column(name = "created_timestamp", nullable = false, updatable = false)
     private Instant createdTimestamp;
+
+    @UpdateTimestamp
+    @Column(name = "score_computed_at", nullable = false)
+    private Instant scoreComputedAt;
 
     public Long getMatchId() {
         return matchId;
@@ -81,5 +86,9 @@ public class UserMatch {
 
     public Instant getCreatedTimestamp() {
         return createdTimestamp;
+    }
+
+    public Instant getScoreComputedAt() {
+        return scoreComputedAt;
     }
 }

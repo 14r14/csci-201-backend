@@ -1,6 +1,6 @@
 # CSCI 201 Backend
 
-Spring Boot **skeleton** for a future REST API: **Spring Data JPA** with **Hibernate** as the ORM (map Java entities to tables, use `JpaRepository`), Bean Validation, and **MySQL by default** so schema and data live on a real server (visible in DBeaver, MySQL Workbench, etc.). **`mvn test`** uses in-memory **H2** only. **No application HTTP routes are defined** (no `@RestController` classes); package folders are reserved for the usual layered layout.
+Spring Boot backend with REST APIs for room reservations, student matching, and study-group collaboration: **Spring Data JPA** with **Hibernate** as the ORM, Bean Validation, and **MySQL by default** so schema and data live on a real server (visible in DBeaver, MySQL Workbench, etc.). **`mvn test`** uses in-memory **H2** only.
 
 ## Prerequisites
 
@@ -29,7 +29,7 @@ From the project root:
 mvn spring-boot:run
 ```
 
-The embedded server listens on **http://localhost:8080**. With no controllers mapped, requests to paths like `/` return **404** until you add REST handlers.
+The embedded server listens on **http://localhost:8080**.
 
 ## Environment variables (`.env`)
 
@@ -53,9 +53,9 @@ For AI-assisted development in this repo, see:
 - **`AGENTS.md`**: repo-specific workflows, guardrails, and prompt templates
 - **`CLAUDE.md`**: practical implementation guidance for AI pair-programming sessions
 
-## OpenAPI / Swagger UI (empty until you add controllers)
+## OpenAPI / Swagger UI
 
-[SpringDoc OpenAPI](https://springdoc.org/) is configured with metadata only in `OpenApiConfig`; the spec has **no paths** until you add `@RestController` classes.
+[SpringDoc OpenAPI](https://springdoc.org/) exposes the currently available controllers and DTO schemas.
 
 After `mvn spring-boot:run`:
 
@@ -83,21 +83,19 @@ csci201-backend/
     │   ├── java/com/csci201/backend/
     │   │   ├── Csci201BackendApplication.java   # entry point
     │   │   ├── config/
-    │   │   │   └── OpenApiConfig.java           # OpenAPI title/description (no operations yet)
-    │   │   ├── controller/                      # REST controllers (empty; .gitkeep)
-    │   │   ├── service/                         # business logic (empty; .gitkeep)
+    │   │   │   └── OpenApiConfig.java           # OpenAPI title/description
+    │   │   ├── controller/                      # REST controllers
+    │   │   ├── service/                         # business logic
     │   │   ├── repository/                      # JpaRepository interfaces
     │   │   ├── entity/                          # JPA entities + enums
-    │   │   ├── dto/                             # request/response types (empty; .gitkeep)
-    │   │   └── exception/                       # e.g. @RestControllerAdvice (empty; .gitkeep)
+    │   │   ├── dto/                             # request/response types
+    │   │   └── exception/                       # error handling / exception mapping
     │   └── resources/
     │       ├── application.yml                  # datasource, Flyway, JPA, profiles
     │       └── flyway/                          # Flyway SQL (h2 / mysql)
     └── test/java/com/csci201/backend/
         └── Csci201BackendApplicationTests.java
 ```
-
-Empty packages (`controller`, `service`, …) use **`.gitkeep`** until you add code there.
 
 ## Database schema & migrations
 
@@ -106,7 +104,7 @@ Empty packages (`controller`, `service`, …) use **`.gitkeep`** until you add c
   - **Default (MySQL)**: `flyway/mysql/V1__initial_schema.sql`
   - **Profile `h2`** (tests / optional local): `flyway/h2/V1__initial_schema.sql`
 
-Add new files as `V2__....sql` in the same folder as the active profile.
+Add new files as incrementing versions (`V3__...`, `V4__...`) in the same folder as the active profile.
 
 ### How to run the initial migration
 
@@ -131,11 +129,33 @@ You should see Flyway migrate to version `1` and then `Started Csci201BackendApp
 | `reservations` | `reservation_id` | FKs → `users`, `rooms`. |
 | `waitlist` | `waitlist_id` | FKs → `users`, `rooms`. Unique `(user_id, room_id, requested_time_slot)`. |
 | `reviews` | `review_id` | FKs → `users`, `rooms`. |
-| `user_matches` | `match_id` | FKs `user_id`, `matched_user_id` → `users`. Check `user_id <> matched_user_id`. |
+| `user_matches` | `match_id` | FKs `user_id`, `matched_user_id` → `users`. Includes cached match score timestamp and unique `(user_id, matched_user_id)`. |
+| `study_groups` | `group_id` | Group metadata, visibility (`PUBLIC`, `INVITE_ONLY`), owner FK to `users`. |
+| `study_group_members` | `group_member_id` | Group membership + role (`OWNER`, `MEMBER`), unique `(group_id, user_id)`. |
+| `study_group_invitations` | `invitation_id` | Invite lifecycle (`PENDING`, `ACCEPTED`, `DECLINED`, `CANCELLED`). |
+| `group_reservations` | `group_reservation_id` | Links a reservation to a study group and booking member. |
 
 The Java entity for matches is **`UserMatch`** (table `user_matches`) to avoid clashing with `java.lang.Match` and reserved SQL keywords.
 
-**Enums** (stored as strings): `UserRole`, `ReservationStatus`, `RoomCurrentStatus` — extend values in `entity/enums/` as needed.
+**Enums** (stored as strings): `UserRole`, `ReservationStatus`, `RoomCurrentStatus`, `GroupVisibility`, `GroupMemberRole`, `GroupInvitationStatus`.
+
+## API endpoints
+
+- **Reservations**
+  - `POST /reservations`
+- **Matching**
+  - `GET /matches/suggestions?userId=...&limit=...`
+  - `GET /matches/search?userId=...&course=...&interest=...&minScore=...`
+- **Study Groups**
+  - `POST /study-groups`
+  - `GET /study-groups?userId=...`
+  - `GET /study-groups/{groupId}`
+  - `POST /study-groups/{groupId}/join`
+  - `POST /study-groups/{groupId}/invites`
+  - `POST /study-groups/invites/{inviteId}/accept`
+  - `POST /study-groups/invites/{inviteId}/decline`
+- **Group Reservations**
+  - `POST /group-reservations`
 
 ## Dependencies (`pom.xml`)
 
