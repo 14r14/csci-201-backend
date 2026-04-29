@@ -31,6 +31,8 @@ public interface WaitlistEntryRepository extends JpaRepository<WaitlistEntry, Lo
             String requestedTimeSlot
     );
 
+    long countByRoom_RoomId(Long roomId);
+
     List<WaitlistEntry> findByUser_UserIdOrderByCreatedTimestampDesc(Long userId);
 
     @Modifying(clearAutomatically = true)

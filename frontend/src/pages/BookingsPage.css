@@ -1,0 +1,127 @@
+.bookings-page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.bookings-header {
+  margin-bottom: 1.75rem;
+}
+
+.bookings-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--usc-cardinal);
+  margin: 0 0 0.25rem;
+}
+
+.bookings-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.bookings-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.booking-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.booking-card--cancelled {
+  opacity: 0.55;
+}
+
+.booking-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.booking-card__room {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text);
+  margin: 0 0 0.2rem;
+}
+
+.booking-card__time {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0 0 0.4rem;
+}
+
+.booking-card__status {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.booking-card__status--confirmed {
+  background: #d4edda;
+  color: #155724;
+}
+
+.booking-card__status--cancelled {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.booking-card__status--completed {
+  background: #e2e3e5;
+  color: #383d41;
+}
+
+.booking-card__status--pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.booking-card__cancel {
+  flex-shrink: 0;
+  padding: 0.35rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.booking-card__cancel:hover:not(:disabled) {
+  background: #f8d7da;
+  color: #721c24;
+  border-color: #f5c6cb;
+}
+
+.booking-card__cancel:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.bookings-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-muted);
+}
+
+.bookings-empty__icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+}

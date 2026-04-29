@@ -5,6 +5,7 @@ import "./NavBar.css";
 export default function NavBar() {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
+  const isGuest = user?.guest ?? false;
 
   return (
     <nav className="navbar">
@@ -19,11 +20,19 @@ export default function NavBar() {
         <NavLink to="/social" className={({ isActive }) => `navbar__link${isActive ? " navbar__link--active" : ""}`}>
           Study Partners
         </NavLink>
+        {!isGuest && (
+          <NavLink to="/bookings" className={({ isActive }) => `navbar__link${isActive ? " navbar__link--active" : ""}`}>
+            My Bookings
+          </NavLink>
+        )}
       </div>
-      {user && (
-        <span className="navbar__user">
-          {user.guest ? "Guest" : user.firstName || user.userName}
-        </span>
+      {user && !isGuest && (
+        <NavLink to="/profile" className={({ isActive }) => `navbar__user${isActive ? " navbar__user--active" : ""}`}>
+          {user.firstName || user.userName}
+        </NavLink>
+      )}
+      {user && isGuest && (
+        <span className="navbar__user">Guest</span>
       )}
       <button className="navbar__logout" onClick={logout}>
         Log out

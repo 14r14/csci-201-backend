@@ -11,6 +11,7 @@ export interface RoomApiResponse {
   currentStatus: "AVAILABLE" | "OCCUPIED" | "MAINTENANCE" | "RESERVED";
   averageRating: number;
   ratingsCount: number;
+  waitlistCount: number;
 }
 
 const KNOWN_FEATURES = new Set<string>([
@@ -41,7 +42,7 @@ export function adaptRoom(r: RoomApiResponse): Room {
     ratingNoise: r.averageRating ?? 0,
     ratingCleanliness: r.averageRating ?? 0,
     reviewCount: r.ratingsCount ?? 0,
-    waitlistCount: 0,
+    waitlistCount: r.waitlistCount ?? 0,
     bookingIntensity: bookingIntensity(r.currentStatus),
   };
 }

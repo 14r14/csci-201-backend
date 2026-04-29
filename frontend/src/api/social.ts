@@ -78,4 +78,7 @@ export const socialApi = {
 
   getReviews: (roomId: string) =>
     api.get<ReviewEntry[]>(`/api/reviews?roomId=${roomId}`),
+
+  updateReview: (reviewId: number, userId: number, rating: number, comment: string) =>
+    api.put<ReviewEntry>(`/api/reviews/${reviewId}`, { userId, rating, comment }),
 };

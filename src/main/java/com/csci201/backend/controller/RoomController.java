@@ -3,6 +3,7 @@ package com.csci201.backend.controller;
 import com.csci201.backend.dto.RoomResponse;
 import com.csci201.backend.entity.Room;
 import com.csci201.backend.repository.RoomRepository;
+import com.csci201.backend.repository.WaitlistEntryRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.Arrays;
 import java.util.List;
@@ -17,9 +18,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class RoomController {
 
     private final RoomRepository roomRepository;
+    private final WaitlistEntryRepository waitlistEntryRepository;
 
-    public RoomController(RoomRepository roomRepository) {
+    public RoomController(RoomRepository roomRepository, WaitlistEntryRepository waitlistEntryRepository) {
         this.roomRepository = roomRepository;
+        this.waitlistEntryRepository = waitlistEntryRepository;
     }
 
     @GetMapping
@@ -50,6 +53,7 @@ public class RoomController {
         r.setCurrentStatus(room.getCurrentStatus().name());
         r.setAverageRating(room.getAverageRating());
         r.setRatingsCount(room.getRatingsCount());
+        r.setWaitlistCount(waitlistEntryRepository.countByRoom_RoomId(room.getRoomId()));
         return r;
     }
 }

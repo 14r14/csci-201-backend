@@ -89,6 +89,19 @@ public class ReservationService {
         if (reservationRepository.existsOverlappingReservation(room.getRoomId(), ReservationStatus.CONFIRMED, startTime, endTime)) {
             throw new RoomNotAvailableException("Room is already booked for the requested time slot");
         }
+        if (reservationRepository.existsOverlappingReservationForUser(user.getUserId(), ReservationStatus.CONFIRMED, startTime, endTime)) {
+            throw new IllegalArgumentException("You already have a reservation during this time slot.");
+        }
+        long newDurationSeconds = endTime.getEpochSecond() - startTime.getEpochSecond();
+        long existingSeconds = reservationRepository
+                .findByUser_UserIdAndRoom_BuildingNameAndStatus(user.getUserId(), room.getBuildingName(), ReservationStatus.CONFIRMED)
+                .stream()
+                .mapToLong(r -> r.getEndTime().getEpochSecond() - r.getStartTime().getEpochSecond())
+                .sum();
+        if (existingSeconds + newDurationSeconds > 7200) {
+            throw new IllegalArgumentException(
+                    "You cannot reserve more than 2 hours total in " + room.getBuildingName() + ".");
+        }
         Reservation reservation = new Reservation();
         reservation.setUser(user);
         reservation.setRoom(room);

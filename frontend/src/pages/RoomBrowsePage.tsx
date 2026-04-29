@@ -99,6 +99,7 @@ export function RoomBrowsePage() {
 
   const [sortMode, setSortMode] = useState<"building" | "rating">("building");
   const [featureFilters, setFeatureFilters] = useState<Set<RoomFeature>>(new Set());
+  const [minCapacity, setMinCapacity] = useState(0);
   const [availableOnly, setAvailableOnly] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [reviewsOpenId, setReviewsOpenId] = useState<string | null>(null);
@@ -118,6 +119,11 @@ export function RoomBrowsePage() {
   const [rateLoading, setRateLoading] = useState(false);
   const ratePopoverRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  const [editingReviewId, setEditingReviewId] = useState<number | null>(null);
+  const [editRating, setEditRating] = useState(0);
+  const [editComment, setEditComment] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
+
   useEffect(() => {
     roomsApi.getAll()
       .then(rs => setRooms(rs.map(adaptRoom)))
@@ -130,12 +136,13 @@ export function RoomBrowsePage() {
       for (const f of featureFilters) {
         if (!r.featureList.includes(f)) return false;
       }
+      if (minCapacity > 0 && r.capacity < minCapacity) return false;
       if (availableOnly && r.currentStatus !== "available") return false;
       return true;
     });
     list = sortRooms(list, sortMode);
     return list;
-  }, [rooms, sortMode, featureFilters, availableOnly]);
+  }, [rooms, sortMode, featureFilters, minCapacity, availableOnly]);
 
   const selectedRoom = useMemo(
     () => filtered.find((r) => r.roomID === selectedRoomId) ?? null,
@@ -274,6 +281,26 @@ export function RoomBrowsePage() {
     }
   }
 
+  async function handleEditReview(roomId: string) {
+    if (!user?.userId || editingReviewId === null || editRating < 1) return;
+    setEditLoading(true);
+    try {
+      const comment = `noise:0,cleanliness:0|${editComment.trim()}`;
+      await socialApi.updateReview(editingReviewId, user.userId, editRating, comment);
+      setEditingReviewId(null);
+      // Refresh review cache and room rating
+      setReviewsCache(prev => { const next = { ...prev }; delete next[roomId]; return next; });
+      loadReviews(roomId);
+      roomsApi.getById(Number(roomId))
+        .then(updated => setRooms(prev => prev.map(r => r.roomID === roomId ? adaptRoom(updated) : r)))
+        .catch(() => null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Edit failed.");
+    } finally {
+      setEditLoading(false);
+    }
+  }
+
   if (loadingRooms) {
     return <div style={{ padding: "2rem", textAlign: "center" }}>Loading rooms…</div>;
   }
@@ -365,6 +392,24 @@ export function RoomBrowsePage() {
             ))}
           </div>
         </fieldset>
+
+        <div className="toolbar-row">
+          <label className="field">
+            <span className="field__label">Min capacity</span>
+            <select
+              className="field__control"
+              value={minCapacity}
+              onChange={(e) => setMinCapacity(Number(e.target.value))}
+            >
+              <option value={0}>Any size</option>
+              <option value={2}>2+ seats</option>
+              <option value={4}>4+ seats</option>
+              <option value={6}>6+ seats</option>
+              <option value={8}>8+ seats</option>
+              <option value={10}>10+ seats</option>
+            </select>
+          </label>
+        </div>
       </div>
 
       <div className="browse-grid">
@@ -648,15 +693,68 @@ export function RoomBrowsePage() {
                         <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>No reviews yet.</p>
                       ) : (
                         <ul>
-                          {(reviewsCache[room.roomID] ?? []).map((rev) => (
-                            <li key={rev.reviewId} className="review-line">
-                              <strong>{rev.userName}</strong> — {rev.rating}/5
-                              {rev.comment && (() => {
-                                const userText = rev.comment.includes("|") ? rev.comment.split("|").slice(1).join("|") : rev.comment;
-                                return userText ? ` — ${userText}` : null;
-                              })()}
-                            </li>
-                          ))}
+                          {(reviewsCache[room.roomID] ?? []).map((rev) => {
+                            const userText = rev.comment?.includes("|")
+                              ? rev.comment.split("|").slice(1).join("|")
+                              : (rev.comment ?? "");
+                            const isOwn = rev.userId === user?.userId;
+                            const isEditing = editingReviewId === rev.reviewId;
+                            return (
+                              <li key={rev.reviewId} className="review-line">
+                                {isEditing ? (
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", padding: "0.5rem 0" }}>
+                                    <ScorePicker
+                                      id={`edit-${rev.reviewId}`}
+                                      label="Rating"
+                                      value={editRating}
+                                      onChange={setEditRating}
+                                    />
+                                    <textarea
+                                      className="booking-popover__textarea"
+                                      rows={2}
+                                      maxLength={500}
+                                      value={editComment}
+                                      onChange={(e) => setEditComment(e.target.value)}
+                                      placeholder="Update your review"
+                                    />
+                                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                                      <button
+                                        className="btn btn--primary btn--small"
+                                        disabled={editRating < 1 || editLoading}
+                                        onClick={() => handleEditReview(room.roomID)}
+                                      >
+                                        {editLoading ? "Saving…" : "Save"}
+                                      </button>
+                                      <button
+                                        className="btn btn--ghost btn--small"
+                                        onClick={() => setEditingReviewId(null)}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <strong>{rev.userName}</strong> — {rev.rating}/5
+                                    {userText ? ` — ${userText}` : null}
+                                    {isOwn && (
+                                      <button
+                                        className="btn btn--ghost btn--small"
+                                        style={{ marginLeft: "0.5rem", fontSize: "0.75rem", padding: "0.1rem 0.4rem" }}
+                                        onClick={() => {
+                                          setEditingReviewId(rev.reviewId);
+                                          setEditRating(rev.rating);
+                                          setEditComment(userText);
+                                        }}
+                                      >
+                                        Edit
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                              </li>
+                            );
+                          })}
                         </ul>
                       )}
                     </div>

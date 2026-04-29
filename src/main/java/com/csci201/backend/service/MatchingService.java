@@ -6,6 +6,9 @@ import com.csci201.backend.entity.UserMatch;
 import com.csci201.backend.entity.enums.UserRole;
 import com.csci201.backend.repository.UserMatchRepository;
 import com.csci201.backend.repository.UserRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,10 +26,12 @@ public class MatchingService {
 
     private final UserRepository userRepository;
     private final UserMatchRepository userMatchRepository;
+    private final ObjectMapper objectMapper;
 
-    public MatchingService(UserRepository userRepository, UserMatchRepository userMatchRepository) {
+    public MatchingService(UserRepository userRepository, UserMatchRepository userMatchRepository, ObjectMapper objectMapper) {
         this.userRepository = userRepository;
         this.userMatchRepository = userMatchRepository;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -122,7 +127,20 @@ public class MatchingService {
         if (raw == null || raw.isBlank()) {
             return Set.of();
         }
-        return Arrays.stream(raw.split("[,;]"))
+        String trimmed = raw.trim();
+        if (trimmed.startsWith("[")) {
+            try {
+                List<String> parsed = objectMapper.readValue(trimmed, new TypeReference<List<String>>() {});
+                return parsed.stream()
+                        .filter(v -> v != null && !v.isBlank())
+                        .map(v -> v.toLowerCase(Locale.ROOT).trim())
+                        .filter(v -> !v.isEmpty())
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
+            } catch (JsonProcessingException ignored) {
+                // fall through to comma-split
+            }
+        }
+        return Arrays.stream(trimmed.split("[,;]"))
                 .map(v -> v.toLowerCase(Locale.ROOT).trim())
                 .filter(v -> !v.isEmpty())
                 .collect(Collectors.toCollection(LinkedHashSet::new));

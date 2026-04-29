@@ -13,6 +13,7 @@ public class RoomResponse {
     private String currentStatus;
     private Double averageRating;
     private Integer ratingsCount;
+    private long waitlistCount;
 
     public Long getRoomId() { return roomId; }
     public void setRoomId(Long roomId) { this.roomId = roomId; }
@@ -40,4 +41,7 @@ public class RoomResponse {
 
     public Integer getRatingsCount() { return ratingsCount; }
     public void setRatingsCount(Integer ratingsCount) { this.ratingsCount = ratingsCount; }
+
+    public long getWaitlistCount() { return waitlistCount; }
+    public void setWaitlistCount(long waitlistCount) { this.waitlistCount = waitlistCount; }
 }

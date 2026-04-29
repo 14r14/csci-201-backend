@@ -3,6 +3,8 @@ import { AuthProvider } from "./context/AuthContext";
 import LoginPage from "./pages/LoginPage";
 import { RoomBrowsePage } from "./pages/RoomBrowsePage";
 import SocialPage from "./pages/SocialPage";
+import BookingsPage from "./pages/BookingsPage";
+import ProfilePage from "./pages/ProfilePage";
 import MainLayout from "./layouts/MainLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -16,6 +18,8 @@ export default function App() {
             <Route element={<MainLayout />}>
               <Route path="/rooms" element={<RoomBrowsePage />} />
               <Route path="/social" element={<SocialPage />} />
+              <Route path="/bookings" element={<BookingsPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/login" replace />} />

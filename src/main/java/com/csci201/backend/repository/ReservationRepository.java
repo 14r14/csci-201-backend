@@ -17,6 +17,18 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             @Param("startTime") Instant startTime,
             @Param("endTime") Instant endTime);
 
+    @Query("SELECT COUNT(r) > 0 FROM Reservation r WHERE r.user.userId = :userId AND r.status = :status AND r.startTime < :endTime AND r.endTime > :startTime")
+    boolean existsOverlappingReservationForUser(
+            @Param("userId") Long userId,
+            @Param("status") ReservationStatus status,
+            @Param("startTime") Instant startTime,
+            @Param("endTime") Instant endTime);
+
+    List<Reservation> findByUser_UserIdAndRoom_BuildingNameAndStatus(
+            Long userId,
+            String buildingName,
+            ReservationStatus status);
+
     boolean existsByRoom_RoomIdAndStartTimeAndStatus(
             Long roomId,
             Instant startTime,

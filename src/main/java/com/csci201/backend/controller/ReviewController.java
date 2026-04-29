@@ -2,6 +2,7 @@ package com.csci201.backend.controller;
 
 import com.csci201.backend.dto.CreateReviewRequest;
 import com.csci201.backend.dto.ReviewResponse;
+import com.csci201.backend.dto.UpdateReviewRequest;
 import com.csci201.backend.entity.Review;
 import com.csci201.backend.entity.Room;
 import com.csci201.backend.entity.User;
@@ -15,7 +16,9 @@ import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -59,6 +62,31 @@ public class ReviewController {
         room.setAverageRating(Math.round(newAvg * 10.0) / 10.0);
         roomRepository.save(room);
 
+        return toResponse(saved);
+    }
+
+    @PutMapping("/{reviewId}")
+    @Transactional
+    public ReviewResponse updateReview(
+            @PathVariable Long reviewId,
+            @Valid @RequestBody UpdateReviewRequest request) {
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new EntityNotFoundException("Review not found: " + reviewId));
+        if (!review.getUser().getUserId().equals(request.getUserId())) {
+            throw new IllegalArgumentException("You can only edit your own reviews.");
+        }
+        Room room = review.getRoom();
+        int oldRating = review.getRating();
+        review.setRating(request.getRating());
+        review.setComment(request.getComment());
+        Review saved = reviewRepository.save(review);
+
+        if (room.getRatingsCount() > 0) {
+            double newAvg = ((room.getAverageRating() * room.getRatingsCount()) - oldRating + request.getRating())
+                    / room.getRatingsCount();
+            room.setAverageRating(Math.round(newAvg * 10.0) / 10.0);
+            roomRepository.save(room);
+        }
         return toResponse(saved);
     }
 
