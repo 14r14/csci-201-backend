@@ -212,11 +212,25 @@ public class StudyGroupService {
         return response;
     }
 
+    public List<StudyGroupInvitationResponse> getPendingInvitesForUser(Long userId) {
+        if (!userRepository.existsById(Objects.requireNonNull(userId, "userId is required"))) {
+            throw new EntityNotFoundException("User not found: " + userId);
+        }
+        return studyGroupInvitationRepository
+                .findByInvitedUser_UserIdAndStatus(userId, GroupInvitationStatus.PENDING)
+                .stream()
+                .map(this::toInvitationResponse)
+                .collect(Collectors.toList());
+    }
+
     private StudyGroupInvitationResponse toInvitationResponse(StudyGroupInvitation invitation) {
         StudyGroupInvitationResponse response = new StudyGroupInvitationResponse();
         response.setInvitationId(invitation.getInvitationId());
         response.setGroupId(invitation.getGroup().getGroupId());
+        response.setGroupName(invitation.getGroup().getGroupName());
         response.setInvitedByUserId(invitation.getInvitedBy().getUserId());
+        response.setInvitedByFirstName(invitation.getInvitedBy().getFirstName());
+        response.setInvitedByLastName(invitation.getInvitedBy().getLastName());
         response.setInvitedUserId(invitation.getInvitedUser().getUserId());
         response.setStatus(invitation.getStatus().name());
         response.setCreatedTimestamp(invitation.getCreatedTimestamp());

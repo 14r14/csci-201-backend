@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/usr/libexec/java_home -V)",
+      "Bash(java -version)",
+      "Read(//Users/seungho/**)"
+    ],
+    "additionalDirectories": [
+      "/Users/seungho"
+    ]
+  }
+}

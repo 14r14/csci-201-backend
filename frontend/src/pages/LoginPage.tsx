@@ -1,36 +1,56 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { authApi } from "../api/auth";
+import { ApiError } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 import "./LoginPage.css";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (mode === "login") {
-      // Mock login
-      if (username === "user" && password === "password") {
+    setError("");
+    setLoading(true);
+    try {
+      if (mode === "login") {
+        const res = await authApi.login(username, password);
+        login(res.user);
         navigate("/social");
-      } else if (username === "user") {
-        setError("Incorrect password");
       } else {
-        setError("Invalid username");
-      }
-    } else {
-      // Mock signup
-      if (username !== "user") {
-        console.log("Account created:", { username, password });
+        await authApi.signup(username, password, firstName, lastName);
         setMode("login");
         setUsername("");
         setPassword("");
-      } else {
-        setError("Username already exists");
+        setFirstName("");
+        setLastName("");
       }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGuest = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      const res = await authApi.guest();
+      login({ ...res.user, userId: null });
+      navigate("/social");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -41,19 +61,13 @@ export default function LoginPage() {
         <div className="auth-toggle">
           <button
             className={mode === "login" ? "active" : ""}
-            onClick={() => {
-              setMode("login");
-              setError("");
-            }}
+            onClick={() => { setMode("login"); setError(""); }}
           >
             Login
           </button>
           <button
             className={mode === "signup" ? "active" : ""}
-            onClick={() => {
-              setMode("signup");
-              setError("");
-            }}
+            onClick={() => { setMode("signup"); setError(""); }}
           >
             Create Account
           </button>
@@ -63,14 +77,35 @@ export default function LoginPage() {
           <h1 className="login-title">
             {mode === "login" ? "Login" : "Create Account"}
           </h1>
-          {/* <p className="login-subtitle">Sign in to your account</p> */}
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
+          {mode === "signup" && (
+            <>
+              <div className="form-group">
+                <input
+                  type="text"
+                  className="form-input"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="First Name"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <input
+                  type="text"
+                  className="form-input"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Last Name"
+                  required
+                />
+              </div>
+            </>
+          )}
+
           <div className="form-group">
-            {/* <label htmlFor="email" className="form-label">
-              Email
-            </label> */}
             <input
               type="text"
               id="username"
@@ -83,9 +118,6 @@ export default function LoginPage() {
           </div>
 
           <div className="form-group">
-            {/* <label htmlFor="password" className="form-label">
-              Password
-            </label> */}
             <input
               type="password"
               id="password"
@@ -99,18 +131,15 @@ export default function LoginPage() {
 
           {error && <div className="error-message">{error}</div>}
 
-          <button type="submit" className="login-btn">
-            {mode === "login" ? "Login" : "Create Account"}
+          <button type="submit" className="login-btn" disabled={loading}>
+            {loading ? "Please wait…" : mode === "login" ? "Login" : "Create Account"}
           </button>
         </form>
 
         <div className="login-footer">
-          <button className="guest-btn" 
-            onClick={() => navigate("/social")}
-          >
+          <button className="guest-btn" onClick={handleGuest} disabled={loading}>
             Continue as Guest
           </button>
-          <br />
         </div>
       </div>
     </div>

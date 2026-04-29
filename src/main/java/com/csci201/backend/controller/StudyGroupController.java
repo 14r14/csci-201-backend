@@ -57,6 +57,11 @@ public class StudyGroupController {
         return studyGroupService.inviteToGroup(groupId, request);
     }
 
+    @GetMapping("/invites")
+    public List<StudyGroupInvitationResponse> getMyInvites(@RequestParam Long userId) {
+        return studyGroupService.getPendingInvitesForUser(userId);
+    }
+
     @PostMapping("/invites/{inviteId}/accept")
     public StudyGroupInvitationResponse acceptInvite(
             @PathVariable Long inviteId, @Valid @RequestBody GroupInvitationActionRequest request) {

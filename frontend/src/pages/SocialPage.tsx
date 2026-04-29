@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { socialApi, avatarColor, type InvitationResponse, type MatchSuggestionResponse } from "../api/social";
+import { useAuth } from "../context/AuthContext";
+import { timeAgo } from "../utils/timeAgo";
 import "./SocialPage.css";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -22,74 +25,37 @@ interface StudyRequest {
   avatarColor: string;
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+// ─── Adapters ─────────────────────────────────────────────────────────────────
 
-const MOCK_PARTNERS: StudyPartner[] = [
-  {
-    id: 1,
-    name: "Alex Chen",
-    initials: "AC",
-    sharedCourses: ["CSCI 201", "CSCI 270", "MATH 226"],
-    compatibilityScore: 96,
-    status: "studying",
-    avatarColor: "#e74c3c",
-  },
-  {
-    id: 2,
-    name: "Priya Patel",
-    initials: "PP",
-    sharedCourses: ["CSCI 201", "CSCI 350"],
-    compatibilityScore: 82,
-    status: "online",
-    avatarColor: "#e67e22",
-  },
-  {
-    id: 3,
-    name: "Jordan Kim",
-    initials: "JK",
-    sharedCourses: ["CSCI 201", "MATH 226", "EE 101"],
-    compatibilityScore: 78,
+function adaptPartner(m: MatchSuggestionResponse): StudyPartner {
+  const courses = m.sharedCourses
+    ? m.sharedCourses.split(",").map(s => s.trim()).filter(Boolean)
+    : [];
+  return {
+    id: m.userId,
+    name: `${m.firstName} ${m.lastName}`,
+    initials: `${m.firstName[0] ?? ""}${m.lastName[0] ?? ""}`.toUpperCase(),
+    sharedCourses: courses,
+    compatibilityScore: Math.min(100, Math.round(m.compatibilityScore * 20)),
     status: "offline",
-    avatarColor: "#27ae60",
-  },
-  {
-    id: 4,
-    name: "Sam Rivera",
-    initials: "SR",
-    sharedCourses: ["CSCI 201", "CSCI 270"],
-    compatibilityScore: 74,
-    status: "online",
-    avatarColor: "#8e44ad",
-  },
-  {
-    id: 5,
-    name: "Taylor Nguyen",
-    initials: "TN",
-    sharedCourses: ["CSCI 270", "MATH 226"],
-    compatibilityScore: 61,
-    status: "offline",
-    avatarColor: "#2980b9",
-  },
-];
+    avatarColor: avatarColor(m.userId),
+  };
+}
 
-const MOCK_REQUESTS: StudyRequest[] = [
-  {
-    id: 1,
-    fromName: "Marcus Lee",
-    fromInitials: "ML",
-    sharedCourses: ["CSCI 201", "CSCI 350"],
-    sentAt: "2 min ago",
-    avatarColor: "#16a085",
-  },
-  {
-    id: 2,
-    fromName: "Dana Wu",
-    fromInitials: "DW",
-    sharedCourses: ["MATH 226"],
-    sentAt: "1 hr ago",
-    avatarColor: "#c0392b",
-  },
-];
+function adaptInvitation(inv: InvitationResponse): StudyRequest {
+  const firstName = inv.invitedByFirstName ?? "";
+  const lastName = inv.invitedByLastName ?? "";
+  const name = `${firstName} ${lastName}`.trim() || `User #${inv.invitedByUserId}`;
+  const initials = `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase() || "?";
+  return {
+    id: inv.invitationId,
+    fromName: name,
+    fromInitials: initials,
+    sharedCourses: inv.groupName ? [inv.groupName] : [],
+    sentAt: timeAgo(inv.createdTimestamp),
+    avatarColor: avatarColor(inv.invitedByUserId),
+  };
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -98,14 +64,10 @@ function StatusDot({ status }: { status: StudyPartner["status"] }) {
 }
 
 function ScoreBar({ score }: { score: number }) {
-  const color =
-    score >= 90 ? "#e74c3c" : score >= 75 ? "#e67e22" : "#f1c40f";
+  const color = score >= 90 ? "#e74c3c" : score >= 75 ? "#e67e22" : "#f1c40f";
   return (
     <div className="score-bar-track">
-      <div
-        className="score-bar-fill"
-        style={{ width: `${score}%`, background: color }}
-      />
+      <div className="score-bar-fill" style={{ width: `${score}%`, background: color }} />
     </div>
   );
 }
@@ -122,10 +84,7 @@ function PartnerCard({
   return (
     <div className="partner-card">
       <div className="partner-card-top">
-        <div
-          className="avatar"
-          style={{ background: partner.avatarColor }}
-        >
+        <div className="avatar" style={{ background: partner.avatarColor }}>
           {partner.initials}
           <StatusDot status={partner.status} />
         </div>
@@ -144,9 +103,7 @@ function PartnerCard({
       <div className="shared-courses-label">Shared courses</div>
       <div className="course-tags">
         {partner.sharedCourses.map((c) => (
-          <span key={c} className="course-tag">
-            {c}
-          </span>
+          <span key={c} className="course-tag">{c}</span>
         ))}
       </div>
 
@@ -176,19 +133,14 @@ function IncomingRequestCard({
 }) {
   return (
     <div className={`request-card ${resolved ? `resolved-${resolution}` : ""}`}>
-      <div
-        className="avatar avatar-sm"
-        style={{ background: request.avatarColor }}
-      >
+      <div className="avatar avatar-sm" style={{ background: request.avatarColor }}>
         {request.fromInitials}
       </div>
       <div className="request-info">
         <div className="request-name">{request.fromName}</div>
         <div className="course-tags">
           {request.sharedCourses.map((c) => (
-            <span key={c} className="course-tag course-tag-sm">
-              {c}
-            </span>
+            <span key={c} className="course-tag course-tag-sm">{c}</span>
           ))}
         </div>
         <div className="request-time">{request.sentAt}</div>
@@ -199,18 +151,8 @@ function IncomingRequestCard({
         </div>
       ) : (
         <div className="request-actions">
-          <button
-            className="btn-accept"
-            onClick={() => onAccept(request.id)}
-          >
-            Accept
-          </button>
-          <button
-            className="btn-decline"
-            onClick={() => onDecline(request.id)}
-          >
-            Decline
-          </button>
+          <button className="btn-accept" onClick={() => onAccept(request.id)}>Accept</button>
+          <button className="btn-decline" onClick={() => onDecline(request.id)}>Decline</button>
         </div>
       )}
     </div>
@@ -220,53 +162,95 @@ function IncomingRequestCard({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function SocialPage() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const [partners, setPartners] = useState<StudyPartner[]>([]);
+  const [requests, setRequests] = useState<StudyRequest[]>([]);
   const [sentRequests, setSentRequests] = useState<Set<number>>(new Set());
-  const [resolvedRequests, setResolvedRequests] = useState<
-    Map<number, "accepted" | "declined">
-  >(new Map());
+  const [resolvedRequests, setResolvedRequests] = useState<Map<number, "accepted" | "declined">>(new Map());
+  const [loadingPartners, setLoadingPartners] = useState(true);
+  const [loadingRequests, setLoadingRequests] = useState(true);
 
-  const filteredPartners = MOCK_PARTNERS.filter(
+  useEffect(() => {
+    if (!user?.userId) {
+      setLoadingPartners(false);
+      setLoadingRequests(false);
+      return;
+    }
+    socialApi.getSuggestions(user.userId)
+      .then(data => setPartners(data.map(adaptPartner)))
+      .catch(() => setPartners([]))
+      .finally(() => setLoadingPartners(false));
+
+    socialApi.getPendingInvites(user.userId)
+      .then(data => setRequests(data.map(adaptInvitation)))
+      .catch(() => setRequests([]))
+      .finally(() => setLoadingRequests(false));
+  }, [user?.userId]);
+
+  const filteredPartners = partners.filter(
     (p) =>
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.sharedCourses.some((c) =>
-        c.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      p.sharedCourses.some((c) => c.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const handleSendRequest = (id: number) => {
-    setSentRequests((prev) => new Set(prev).add(id));
+  const handleSendRequest = async (partnerId: number) => {
+    if (!user?.userId) return;
+    const partner = partners.find(p => p.id === partnerId);
+    try {
+      const group = await socialApi.createGroup(
+        user.userId,
+        `Study session with ${partner?.name ?? "you"}`,
+        partner?.sharedCourses[0],
+      );
+      await socialApi.inviteToGroup(group.groupId, user.userId, partnerId);
+      setSentRequests((prev) => new Set(prev).add(partnerId));
+    } catch {
+      setSentRequests((prev) => new Set(prev).add(partnerId));
+    }
   };
 
-  const handleAccept = (id: number) => {
-    setResolvedRequests((prev) => new Map(prev).set(id, "accepted"));
+  const handleAccept = async (invitationId: number) => {
+    if (!user?.userId) return;
+    try {
+      await socialApi.acceptInvite(invitationId, user.userId);
+    } catch { /* already accepted or error; optimistic update below */ }
+    setResolvedRequests((prev) => new Map(prev).set(invitationId, "accepted"));
   };
 
-  const handleDecline = (id: number) => {
-    setResolvedRequests((prev) => new Map(prev).set(id, "declined"));
+  const handleDecline = async (invitationId: number) => {
+    if (!user?.userId) return;
+    try {
+      await socialApi.declineInvite(invitationId, user.userId);
+    } catch { /* already declined or error; optimistic update below */ }
+    setResolvedRequests((prev) => new Map(prev).set(invitationId, "declined"));
   };
+
+  const pendingCount = requests.filter(r => !resolvedRequests.has(r.id)).length;
 
   return (
     <div className="social-page">
-      {/* Header */}
       <div className="social-header">
         <div className="social-header-text">
           <h1 className="social-title">Study Partners</h1>
-          <p className="social-subtitle">
-            Find classmates who share your courses
-          </p>
+          <p className="social-subtitle">Find classmates who share your courses</p>
         </div>
         <div className="header-stats">
           <div className="stat-chip">
-            <span className="stat-num">{MOCK_PARTNERS.length}</span> matches
+            <span className="stat-num">{loadingPartners ? "…" : partners.length}</span> matches
           </div>
           <div className="stat-chip stat-chip-alert">
-            <span className="stat-num">{MOCK_REQUESTS.length}</span> requests
+            <span className="stat-num">{loadingRequests ? "…" : pendingCount}</span> requests
           </div>
         </div>
       </div>
 
-      {/* Search Bar */}
+      {!user?.userId && (
+        <div style={{ padding: "1rem 1.5rem", background: "var(--surface)", borderRadius: "var(--radius)", margin: "1rem", color: "var(--text-muted)" }}>
+          Sign in to see your study partner matches.
+        </div>
+      )}
+
       <div className="search-wrapper">
         <span className="search-icon">⌕</span>
         <input
@@ -277,29 +261,27 @@ export default function SocialPage() {
           onChange={(e) => setSearchQuery(e.target.value)}
         />
         {searchQuery && (
-          <button className="search-clear" onClick={() => setSearchQuery("")}>
-            ×
-          </button>
+          <button className="search-clear" onClick={() => setSearchQuery("")}>×</button>
         )}
       </div>
 
       <div className="social-layout">
-        {/* Left: Recommended Partners */}
         <section className="partners-section">
           <h2 className="section-title">
             Recommended Partners
             {searchQuery && (
               <span className="filter-note">
-                {" "}— {filteredPartners.length} result
-                {filteredPartners.length !== 1 ? "s" : ""}
+                {" "}— {filteredPartners.length} result{filteredPartners.length !== 1 ? "s" : ""}
               </span>
             )}
           </h2>
 
-          {filteredPartners.length === 0 ? (
+          {loadingPartners ? (
+            <div className="empty-state"><div>Loading matches…</div></div>
+          ) : filteredPartners.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">🔍</div>
-              <div>No partners found for "{searchQuery}"</div>
+              <div>{searchQuery ? `No partners found for "${searchQuery}"` : "No matches found. Try adding courses to your profile."}</div>
             </div>
           ) : (
             <div className="partners-grid">
@@ -315,23 +297,22 @@ export default function SocialPage() {
           )}
         </section>
 
-        {/* Right: Incoming Requests */}
         <section className="requests-section">
           <h2 className="section-title">
             Incoming Requests
-            {MOCK_REQUESTS.some((r) => !resolvedRequests.has(r.id)) && (
-              <span className="badge-dot" />
-            )}
+            {pendingCount > 0 && <span className="badge-dot" />}
           </h2>
 
-          {MOCK_REQUESTS.length === 0 ? (
+          {loadingRequests ? (
+            <div className="empty-state"><div>Loading requests…</div></div>
+          ) : requests.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">📭</div>
               <div>No pending requests</div>
             </div>
           ) : (
             <div className="requests-list">
-              {MOCK_REQUESTS.map((req) => (
+              {requests.map((req) => (
                 <IncomingRequestCard
                   key={req.id}
                   request={req}

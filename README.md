@@ -1,74 +1,89 @@
-# CSCI 201 Backend
+# CSCI 201 — Study Room App
 
-Spring Boot backend with REST APIs for room reservations, student matching, and study-group collaboration: **Spring Data JPA** with **Hibernate** as the ORM, Bean Validation, and **MySQL by default** so schema and data live on a real server (visible in DBeaver, MySQL Workbench, etc.). **`mvn test`** uses in-memory **H2** only.
+Full-stack app for USC study room reservations, student matching, and study-group collaboration.
+
+- **Backend**: Spring Boot + Spring Data JPA + MySQL + Flyway
+- **Frontend**: React 19 + TypeScript + Vite (in `frontend/`)
+
+---
 
 ## Prerequisites
 
 | Requirement | Notes |
-|-------------|--------|
-| **JDK 21** | This project targets Java 21. Check with `java --version` (or `java -version`). |
-| **Apache Maven 3.9+** | `mvn -version` should work. |
+|-------------|-------|
+| **JDK 21** | `java --version` should show 21. macOS: `brew install openjdk@21` |
+| **Apache Maven 3.9+** | `mvn -version`. macOS: `brew install maven` |
+| **Node.js 18+** | `node -v`. macOS: `brew install node` |
+| **MySQL** | Running locally or via Docker for the backend runtime |
 
-Example install on macOS:
-
-- **Homebrew**: `brew install openjdk@21` and `brew install maven`
-- **SDKMAN**: `sdk install java 21.0.x-tem` then `sdk install maven`
-
-Ensure Maven uses JDK 21 (same vendor as `java --version` if you use multiple JDKs):
-
-```bash
-java --version
-mvn -version   # should list Java version 21 for the build
-```
+---
 
 ## Quick start
 
-From the project root:
+### 1 — Backend
 
 ```bash
+# from repo root
+cp .env.example .env        # fill in DB_USER, DB_PASSWORD, etc.
 mvn spring-boot:run
 ```
 
-The embedded server listens on **http://localhost:8080**.
+Backend listens on **http://localhost:8080**. Flyway auto-creates tables on first run.
 
-## Environment variables (`.env`)
+### 2 — Frontend
 
-Secrets and local DB settings should live in a **`.env`** file in the project root. That file is **gitignored**; collaborators start from **`.env.example`** (tracked in git):
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Frontend listens on **http://localhost:5173** and proxies API calls to `http://localhost:8080` via the `VITE_API_BASE_URL` env var (already set in `frontend/.env`).
+
+---
+
+## Environment variables
+
+### Backend — `.env` (project root)
+
+Gitignored. Copy from `.env.example` and fill in values:
 
 ```bash
 cp .env.example .env
-# Edit .env with your real DB_USER, DB_PASSWORD, SPRING_PROFILES_ACTIVE, etc.
 ```
 
-At startup, `DotenvEnvironmentPostProcessor` loads `.env` into the Spring environment (from the **process working directory**, so run Maven from the repo root). Variable names match `application.yml` (for example `DB_USER`, `MYSQL_HOST`).
+Key variables (matched to `application.yml`):
 
-`mvn test` / `mvn verify` run with **`-Dspring.dotenv.skip=true`**, and **`Csci201BackendApplicationTests`** uses **`@ActiveProfiles("h2")`** so tests use in-memory H2 and do not need MySQL.
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `MYSQL_HOST` | `localhost` | MySQL host |
+| `MYSQL_PORT` | `3306` | MySQL port |
+| `MYSQL_DATABASE` | `csci201` | Database name |
+| `DB_USER` | `root` | MySQL user |
+| `DB_PASSWORD` | _(empty)_ | MySQL password |
+| `SPRING_PROFILES_ACTIVE` | _(none)_ | Set to `h2` for in-memory mode |
 
-**Debugging `.env` / MySQL “Access denied”:** On startup (before Flyway connects), logs include `dotenv:` (raw values from `.env`) and `resolved:` (merged `spring.datasource.*`). Passwords are masked by default. To log the full password temporarily, set **`DOTENV_LOG_SECRETS=true`** in the environment or **`-Ddotenv.log.secrets=true`** on the JVM — remove afterward.
+On startup, `DotenvEnvironmentPostProcessor` loads `.env` from the working directory. Startup logs print `dotenv:` (raw values) and `resolved:` (merged datasource config) for debugging. Set `DOTENV_LOG_SECRETS=true` to unmask passwords temporarily.
 
-## AI collaboration guides
+### Frontend — `frontend/.env`
 
-For AI-assisted development in this repo, see:
+Tracked in git (no secrets). One variable:
 
-- **`AGENTS.md`**: repo-specific workflows, guardrails, and prompt templates
-- **`CLAUDE.md`**: practical implementation guidance for AI pair-programming sessions
+```
+VITE_API_BASE_URL=http://localhost:8080
+```
 
-## OpenAPI / Swagger UI
+Change this if the backend runs on a different host or port.
 
-[SpringDoc OpenAPI](https://springdoc.org/) exposes the currently available controllers and DTO schemas.
+---
 
-After `mvn spring-boot:run`:
+## Auth flow
 
-- **Swagger UI**: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
-- **OpenAPI JSON**: [http://localhost:8080/api-docs](http://localhost:8080/api-docs)
+The app uses a simple username/password scheme — no JWTs. After login/signup/guest, the backend returns a user object that the frontend stores in `localStorage` (`"session_user"` key) and React context. All protected routes (`/rooms`, `/social`) redirect to `/login` if no session is found.
 
-Paths are set in `application.yml` under `springdoc.*`.
+**Guest** users can browse rooms but cannot book, rate, or join a waitlist.
 
-## MySQL (default runtime)
-
-Create an empty database (for example `csci201`), put credentials in **`.env`** (see **`.env.example`**), then `mvn spring-boot:run`. Flyway creates tables in that database; connect your client to the same host, port, and database name to browse schema and rows.
-
-Optional **`SPRING_PROFILES_ACTIVE=h2`** runs the app against in-memory H2 when you cannot reach MySQL (data is not visible in a MySQL client).
+---
 
 ## Repository layout
 
@@ -76,137 +91,188 @@ Optional **`SPRING_PROFILES_ACTIVE=h2`** runs the app against in-memory H2 when 
 csci201-backend/
 ├── pom.xml
 ├── README.md
-├── .gitignore
-├── .env.example          # template; copy to `.env` (gitignored)
+├── .env.example              # backend env template (copy → .env)
+├── frontend/                 # React + TypeScript frontend
+│   ├── .env                  # VITE_API_BASE_URL (tracked, no secrets)
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── src/
+│       ├── App.tsx            # router + AuthProvider
+│       ├── api/               # typed fetch modules (auth, rooms, reservations, etc.)
+│       ├── context/           # AuthContext (session, login, logout)
+│       ├── components/        # NavBar, ProtectedRoute, BuildingAvailabilityMap
+│       ├── layouts/           # MainLayout (NavBar + Outlet)
+│       ├── pages/             # LoginPage, RoomBrowsePage, SocialPage
+│       ├── types/             # room.ts TypeScript types
+│       └── utils/             # timeAgo helper
 └── src/
     ├── main/
     │   ├── java/com/csci201/backend/
-    │   │   ├── Csci201BackendApplication.java   # entry point
-    │   │   ├── config/
-    │   │   │   └── OpenApiConfig.java           # OpenAPI title/description
-    │   │   ├── controller/                      # REST controllers
-    │   │   ├── service/                         # business logic
-    │   │   ├── repository/                      # JpaRepository interfaces
-    │   │   ├── entity/                          # JPA entities + enums
-    │   │   ├── dto/                             # request/response types
-    │   │   └── exception/                       # error handling / exception mapping
+    │   │   ├── Csci201BackendApplication.java
+    │   │   ├── config/        # SecurityConfig (CORS), OpenApiConfig, DotenvPostProcessor
+    │   │   ├── controller/    # REST controllers
+    │   │   ├── service/       # business logic
+    │   │   ├── repository/    # JpaRepository interfaces
+    │   │   ├── entity/        # JPA entities + enums
+    │   │   ├── dto/           # request/response types
+    │   │   └── exception/     # GlobalExceptionHandler
     │   └── resources/
-    │       ├── application.yml                  # datasource, Flyway, JPA, profiles
-    │       └── flyway/                          # Flyway SQL (h2 / mysql)
-    └── test/java/com/csci201/backend/
-        └── Csci201BackendApplicationTests.java
+    │       ├── application.yml
+    │       └── flyway/        # SQL migrations (mysql/ and h2/)
+    └── test/
 ```
 
-## Database schema & migrations
-
-- **ORM**: JPA entities under `entity/` map to tables; **Hibernate** validates the schema against the database (`spring.jpa.hibernate.ddl-auto: validate`).
-- **Migrations**: **Flyway** runs **before** Hibernate.
-  - **Default (MySQL)**: `flyway/mysql/V1__initial_schema.sql`
-  - **Profile `h2`** (tests / optional local): `flyway/h2/V1__initial_schema.sql`
-
-Add new files as incrementing versions (`V3__...`, `V4__...`) in the same folder as the active profile.
-
-### How to run the initial migration
-
-You **do not** run Flyway as a separate manual step in normal development. **Flyway runs automatically** when the Spring Boot application starts: it connects to the datasource, applies any pending scripts from `spring.flyway.locations` (for example `V1__initial_schema.sql`), then Hibernate starts with `ddl-auto: validate`.
-
-**MySQL (default)** — create the database, configure **`.env`**, then from the repo root:
-
-```bash
-mvn spring-boot:run
-```
-
-You should see Flyway migrate to version `1` and then `Started Csci201BackendApplication`. If MySQL is down or credentials are wrong, startup fails.
-
-**In-memory H2** — only when you set `SPRING_PROFILES_ACTIVE=h2` (tests do this automatically); tables are not on MySQL.
-
-### Tables (logical model)
-
-| Table | PK | Notes |
-|-------|-----|--------|
-| `users` | `user_id` | Unique `user_name`. |
-| `rooms` | `room_id` | Unique `(building_name, room_number)`. |
-| `reservations` | `reservation_id` | FKs → `users`, `rooms`. |
-| `waitlist` | `waitlist_id` | FKs → `users`, `rooms`. Unique `(user_id, room_id, requested_time_slot)`. |
-| `reviews` | `review_id` | FKs → `users`, `rooms`. |
-| `user_matches` | `match_id` | FKs `user_id`, `matched_user_id` → `users`. Includes cached match score timestamp and unique `(user_id, matched_user_id)`. |
-| `study_groups` | `group_id` | Group metadata, visibility (`PUBLIC`, `INVITE_ONLY`), owner FK to `users`. |
-| `study_group_members` | `group_member_id` | Group membership + role (`OWNER`, `MEMBER`), unique `(group_id, user_id)`. |
-| `study_group_invitations` | `invitation_id` | Invite lifecycle (`PENDING`, `ACCEPTED`, `DECLINED`, `CANCELLED`). |
-| `group_reservations` | `group_reservation_id` | Links a reservation to a study group and booking member. |
-
-The Java entity for matches is **`UserMatch`** (table `user_matches`) to avoid clashing with `java.lang.Match` and reserved SQL keywords.
-
-**Enums** (stored as strings): `UserRole`, `ReservationStatus`, `RoomCurrentStatus`, `GroupVisibility`, `GroupMemberRole`, `GroupInvitationStatus`.
+---
 
 ## API endpoints
 
-- **Reservations**
-  - `POST /reservations`
-- **Matching**
-  - `GET /matches/suggestions?userId=...&limit=...`
-  - `GET /matches/search?userId=...&course=...&interest=...&minScore=...`
-- **Study Groups**
-  - `POST /study-groups`
-  - `GET /study-groups?userId=...`
-  - `GET /study-groups/{groupId}`
-  - `POST /study-groups/{groupId}/join`
-  - `POST /study-groups/{groupId}/invites`
-  - `POST /study-groups/invites/{inviteId}/accept`
-  - `POST /study-groups/invites/{inviteId}/decline`
-- **Group Reservations**
-  - `POST /group-reservations`
+### Auth — `/auth`
 
-## Dependencies (`pom.xml`)
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/auth/signup` | Create account (`userName`, `password`, `firstName`, `lastName`) |
+| POST | `/auth/login` | Login (`userName`, `password`) |
+| POST | `/auth/guest` | Anonymous guest session |
 
-| Dependency | Purpose |
-|------------|---------|
-| `spring-boot-starter-web` | Servlet stack, Spring MVC, JSON for REST when you add controllers. |
-| `spring-boot-starter-data-jpa` | JPA + Hibernate (ORM), `JpaRepository`, transactions. |
-| `spring-boot-starter-validation` | `jakarta.validation` on DTOs. |
-| `dotenv-java` | Parses `.env` in the project root via `DotenvEnvironmentPostProcessor`. |
-| `mysql-connector-j` | JDBC driver (default runtime database). |
-| `h2` | In-memory DB for **tests** only (`test` scope). |
-| `flyway-core`, `flyway-mysql` | Flyway + MySQL support; H2 uses Flyway’s built-in H2 integration in tests. |
-| `springdoc-openapi-starter-webmvc-ui` | OpenAPI 3 + Swagger UI (empty spec until controllers exist). |
-| `spring-boot-starter-test` | JUnit 5, Spring Test (test scope). |
+### Rooms — `/api/rooms`
 
-## Configuration (`application.yml`)
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/rooms` | List all rooms |
+| GET | `/api/rooms/{id}` | Get single room |
 
-- **Default**: **MySQL** — JDBC URL from `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`; credentials `DB_USER` / `DB_PASSWORD`. Flyway `classpath:flyway/mysql`, `ddl-auto: validate`.
-- **Profile `h2`**: In-memory H2 + `classpath:flyway/h2` (used by tests via `@ActiveProfiles("h2")`; optional for local runs without MySQL).
+### Reservations — `/api/reservations`
 
-Run the app (MySQL must exist and accept the connection):
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/reservations` | Book a room (`userId`, `roomId`, `startTime`, `endTime`) |
+| DELETE | `/api/reservations/{id}` | Cancel reservation (promotes next waitlist user) |
+| GET | `/api/reservations?userId=X` | User's reservations |
 
-```bash
-# credentials often come from .env
-mvn spring-boot:run
-```
+### Waitlist — `/api/waitlist`
 
-Schema changes belong in **new Flyway scripts**; Hibernate only **validates** that entities still match the database.
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/waitlist` | Join waitlist (`userId`, `roomId`, `requestedTimeSlot`) |
+| DELETE | `/api/waitlist/{id}` | Leave waitlist |
+| GET | `/api/waitlist?userId=X` | User's waitlist entries |
+| GET | `/api/waitlist/rooms/{roomId}?requestedTimeSlot=...` | Waitlist for a room/slot |
+
+### Reviews — `/api/reviews`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/reviews` | Submit a review (`userId`, `roomId`, `rating 1–5`, `comment`). Updates room's `averageRating` and `ratingsCount`. |
+| GET | `/api/reviews?roomId=X` | Reviews for a room (newest first) |
+
+### Matching — `/matches`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/matches/suggestions?userId=X&limit=N` | Top N partner suggestions by compatibility score |
+| GET | `/matches/search?userId=X&course=...&minScore=...` | Filtered/paginated partner search |
+
+### Study Groups — `/study-groups`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/study-groups` | Create group |
+| GET | `/study-groups?userId=X` | Groups the user belongs to |
+| GET | `/study-groups/{groupId}` | Group detail + members |
+| POST | `/study-groups/{groupId}/join` | Join a PUBLIC group |
+| POST | `/study-groups/{groupId}/invites` | Invite a user |
+| GET | `/study-groups/invites?userId=X` | Pending invitations for a user |
+| POST | `/study-groups/invites/{inviteId}/accept` | Accept invitation |
+| POST | `/study-groups/invites/{inviteId}/decline` | Decline invitation |
+
+### Group Reservations — `/group-reservations`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/group-reservations` | Book a room for a study group |
+
+### Courses — `/api/users/{userId}/courses`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| PUT | `/api/users/{userId}/courses` | Replace course list |
+| GET | `/api/users/{userId}/courses` | Get course list |
+
+---
+
+## Database schema
+
+- **ORM**: JPA entities under `entity/`; Hibernate validates schema (`ddl-auto: validate`).
+- **Migrations**: Flyway runs automatically on startup before Hibernate.
+  - Default (MySQL): `flyway/mysql/`
+  - Tests / H2 profile: `flyway/h2/`
+
+Add new migrations as `V5__...`, `V6__...` etc. Never mutate existing scripts.
+
+### Tables
+
+| Table | PK | Notes |
+|-------|----|-------|
+| `users` | `user_id` | Unique `user_name`; stores courses as JSON string |
+| `rooms` | `room_id` | Unique `(building_name, room_number)`; tracks `average_rating`, `ratings_count` |
+| `reservations` | `reservation_id` | Status: `PENDING`, `CONFIRMED`, `CANCELLED`, `COMPLETED` |
+| `waitlist` | `waitlist_id` | Unique `(user_id, room_id, requested_time_slot)`; ordered by `queue_position` |
+| `reviews` | `review_id` | Single `rating` (1–5); `comment` may encode sub-ratings as `noise:N,cleanliness:N\|text` |
+| `user_matches` | `match_id` | Cached compatibility scores; unique `(user_id, matched_user_id)` |
+| `study_groups` | `group_id` | Visibility: `PUBLIC`, `INVITE_ONLY` |
+| `study_group_members` | `group_member_id` | Role: `OWNER`, `MEMBER`; unique `(group_id, user_id)` |
+| `study_group_invitations` | `invitation_id` | Status: `PENDING`, `ACCEPTED`, `DECLINED`, `CANCELLED` |
+| `group_reservations` | `group_reservation_id` | Links a reservation to a study group |
+
+---
 
 ## Build and test
 
 ```bash
+# backend unit + integration tests (H2, no MySQL needed)
 mvn clean verify
-```
 
-Package and run the JAR:
-
-```bash
+# build JAR
 mvn package -DskipTests
 java -jar target/csci201-backend-0.0.1-SNAPSHOT.jar
+
+# frontend type check
+cd frontend && npx tsc --noEmit
+
+# frontend production build
+cd frontend && npm run build
 ```
 
-## Security note
+---
 
-No authentication is configured. For real deployments, add Spring Security and manage database secrets properly.
+## OpenAPI / Swagger
+
+After `mvn spring-boot:run`:
+
+- **Swagger UI**: http://localhost:8080/swagger-ui.html
+- **OpenAPI JSON**: http://localhost:8080/api-docs
+
+---
 
 ## Troubleshooting
 
-- **Port 8080 in use**: Change `server.port` in `application.yml`.
-- **Java version mismatch**: Align `JAVA_HOME` and `mvn -version` with JDK 21.
-- **Maven cannot resolve artifacts**: Check network; try `mvn -U clean verify`.
+| Problem | Fix |
+|---------|-----|
+| Port 8080 in use | Change `server.port` in `application.yml` |
+| Java version mismatch | Align `JAVA_HOME` and `mvn -version` with JDK 21 |
+| Maven can't resolve artifacts | `mvn -U clean verify` |
+| Frontend can't reach backend | Check `VITE_API_BASE_URL` in `frontend/.env` and that CORS allows your origin |
+| "Access denied" on MySQL | Check `DB_USER`/`DB_PASSWORD` in `.env`; set `DOTENV_LOG_SECRETS=true` to debug |
+| Login/signup fails | Backend must be running; check browser console for CORS errors |
+
+---
+
+## AI collaboration guides
+
+- **`AGENTS.md`**: repo-specific workflows, guardrails, and prompt templates
+- **`CLAUDE.md`**: practical implementation guidance for AI pair-programming sessions
+
+---
 
 ## License
 
