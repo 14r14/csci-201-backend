@@ -35,5 +35,7 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             ReservationStatus status
     );
 
+    boolean existsByRoom_RoomIdAndStatus(Long roomId, ReservationStatus status);
+
     List<Reservation> findByUser_UserIdOrderByStartTimeDesc(Long userId);
 }

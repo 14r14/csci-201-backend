@@ -112,8 +112,7 @@ export function RoomBrowsePage() {
   const bookPopoverRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [ratingPopoverRoomId, setRatingPopoverRoomId] = useState<string | null>(null);
   const [rateOverall, setRateOverall] = useState(0);
-  const [rateNoise, setRateNoise] = useState(0);
-  const [rateCleanliness, setRateCleanliness] = useState(0);
+
   const [rateReview, setRateReview] = useState("");
   const [rateDemoNotice, setRateDemoNotice] = useState<string | null>(null);
   const [rateLoading, setRateLoading] = useState(false);
@@ -123,6 +122,14 @@ export function RoomBrowsePage() {
   const [editRating, setEditRating] = useState(0);
   const [editComment, setEditComment] = useState("");
   const [editLoading, setEditLoading] = useState(false);
+
+  const [waitlistPopoverRoomId, setWaitlistPopoverRoomId] = useState<string | null>(null);
+  const [waitlistSlotChoiceId, setWaitlistSlotChoiceId] = useState<string | null>(null);
+  const [waitlistNotice, setWaitlistNotice] = useState<string | null>(null);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const waitlistPopoverRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  // roomId → slot label the current user joined (persists until page reload)
+  const [joinedSlotByRoom, setJoinedSlotByRoom] = useState<Record<string, string>>({});
 
   useEffect(() => {
     roomsApi.getAll()
@@ -153,8 +160,6 @@ export function RoomBrowsePage() {
 
   function resetRateForm() {
     setRateOverall(0);
-    setRateNoise(0);
-    setRateCleanliness(0);
     setRateReview("");
     setRateDemoNotice(null);
   }
@@ -170,33 +175,42 @@ export function RoomBrowsePage() {
     resetRateForm();
   }
 
+  function closeWaitlistPopover() {
+    setWaitlistPopoverRoomId(null);
+    setWaitlistSlotChoiceId(null);
+    setWaitlistNotice(null);
+  }
+
   useEffect(() => {
-    if (bookingPopoverRoomId === null && ratingPopoverRoomId === null) return;
+    if (bookingPopoverRoomId === null && ratingPopoverRoomId === null && waitlistPopoverRoomId === null) return;
     const close = (e: MouseEvent) => {
       const t = e.target as Node;
       if (bookingPopoverRoomId && bookPopoverRefs.current[bookingPopoverRoomId]?.contains(t)) return;
       if (ratingPopoverRoomId && ratePopoverRefs.current[ratingPopoverRoomId]?.contains(t)) return;
+      if (waitlistPopoverRoomId && waitlistPopoverRefs.current[waitlistPopoverRoomId]?.contains(t)) return;
       closeBookingPopover();
       closeRatingPopover();
+      closeWaitlistPopover();
     };
     const timerId = window.setTimeout(() => document.addEventListener("click", close), 0);
     return () => {
       window.clearTimeout(timerId);
       document.removeEventListener("click", close);
     };
-  }, [bookingPopoverRoomId, ratingPopoverRoomId]);
+  }, [bookingPopoverRoomId, ratingPopoverRoomId, waitlistPopoverRoomId]);
 
   useEffect(() => {
-    if (bookingPopoverRoomId === null && ratingPopoverRoomId === null) return;
+    if (bookingPopoverRoomId === null && ratingPopoverRoomId === null && waitlistPopoverRoomId === null) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         closeBookingPopover();
         closeRatingPopover();
+        closeWaitlistPopover();
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [bookingPopoverRoomId, ratingPopoverRoomId]);
+  }, [bookingPopoverRoomId, ratingPopoverRoomId, waitlistPopoverRoomId]);
 
   function toggleFeature(f: RoomFeature) {
     setFeatureFilters((prev) => {
@@ -246,13 +260,19 @@ export function RoomBrowsePage() {
   }
 
   async function handleWaitlistJoin(room: Room) {
-    if (!user?.userId) return;
-    const slot = new Date().toISOString();
+    if (!user?.userId || !waitlistSlotChoiceId) return;
+    const slotLabel = mockTimeSlotsForRoom(room).find(s => s.id === waitlistSlotChoiceId)?.label ?? "";
+    const { startTime } = parseSlotLabel(slotLabel);
+    setWaitlistLoading(true);
     try {
-      const res = await waitlistApi.join(user.userId, Number(room.roomID), slot);
-      alert(`Added to waitlist. Position: ${res.queuePosition} of ${res.waitlistCount}`);
+      const res = await waitlistApi.join(user.userId, Number(room.roomID), startTime);
+      setWaitlistNotice(`Added to waitlist for ${slotLabel} at position ${res.queuePosition}.`);
+      setJoinedSlotByRoom(prev => ({ ...prev, [room.roomID]: slotLabel }));
+      setWaitlistSlotChoiceId(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Could not join waitlist.");
+      setWaitlistNotice(err instanceof Error ? err.message : "Could not join waitlist.");
+    } finally {
+      setWaitlistLoading(false);
     }
   }
 
@@ -260,7 +280,7 @@ export function RoomBrowsePage() {
     if (!user?.userId || rateOverall < 1) return;
     setRateLoading(true);
     try {
-      const comment = `noise:${rateNoise},cleanliness:${rateCleanliness}|${rateReview.trim()}`;
+      const comment = rateReview.trim();
       await socialApi.getReviews(room.roomID); // warm cache before overwriting
       await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/reviews`, {
         method: "POST",
@@ -285,7 +305,7 @@ export function RoomBrowsePage() {
     if (!user?.userId || editingReviewId === null || editRating < 1) return;
     setEditLoading(true);
     try {
-      const comment = `noise:0,cleanliness:0|${editComment.trim()}`;
+      const comment = editComment.trim();
       await socialApi.updateReview(editingReviewId, user.userId, editRating, comment);
       setEditingReviewId(null);
       // Refresh review cache and room rating
@@ -393,7 +413,7 @@ export function RoomBrowsePage() {
           </div>
         </fieldset>
 
-        <div className="toolbar-row">
+        <div className="toolbar-row" style={{ marginTop: "0.75rem" }}>
           <label className="field">
             <span className="field__label">Min capacity</span>
             <select
@@ -473,28 +493,15 @@ export function RoomBrowsePage() {
                       <span className="stars__out">/5</span>
                       <span className="stars__count">({room.reviewCount} reviews)</span>
                     </div>
-                    <div className="sub-ratings">
-                      <div>
-                        <span className="sub-ratings__label">Noise</span>
-                        <meter min={0} max={5} low={2.5} high={3.5} optimum={5} value={room.ratingNoise}>
-                          {room.ratingNoise}
-                        </meter>
-                        <span className="sub-ratings__num">{room.ratingNoise.toFixed(1)}</span>
-                      </div>
-                      <div>
-                        <span className="sub-ratings__label">Clean</span>
-                        <meter min={0} max={5} low={2.5} high={3.5} optimum={5} value={room.ratingCleanliness}>
-                          {room.ratingCleanliness}
-                        </meter>
-                        <span className="sub-ratings__num">{room.ratingCleanliness.toFixed(1)}</span>
-                      </div>
-                    </div>
                   </div>
 
                   {room.waitlistCount > 0 && (
                     <p className="waitlist-banner">
                       Waitlist: <strong>{room.waitlistCount}</strong> student
                       {room.waitlistCount === 1 ? "" : "s"} ahead
+                      {joinedSlotByRoom[room.roomID] && (
+                        <> · {joinedSlotByRoom[room.roomID]}</>
+                      )}
                     </p>
                   )}
 
@@ -636,8 +643,6 @@ export function RoomBrowsePage() {
                           <p className="booking-popover__room">{room.buildingName} {room.roomNumber}</p>
                           <p className="booking-popover__sub">1 = poor, 5 = excellent.</p>
                           <ScorePicker id={`${room.roomID}-overall`} label="Overall" value={rateOverall} onChange={setRateOverall} />
-                          <ScorePicker id={`${room.roomID}-noise`} label="Noise level (quietness)" value={rateNoise} onChange={setRateNoise} />
-                          <ScorePicker id={`${room.roomID}-clean`} label="Cleanliness" value={rateCleanliness} onChange={setRateCleanliness} />
                           <label className="booking-popover__review-label" htmlFor={`rate-review-${room.roomID}`}>
                             Review (optional)
                           </label>
@@ -660,7 +665,7 @@ export function RoomBrowsePage() {
                             <button
                               type="button"
                               className="btn btn--primary btn--small"
-                              disabled={rateOverall < 1 || rateNoise < 1 || rateCleanliness < 1 || rateLoading}
+                              disabled={rateOverall < 1 || rateLoading}
                               onClick={() => handleRateSubmit(room)}
                             >
                               {rateLoading ? "Saving…" : "Submit"}
@@ -670,20 +675,85 @@ export function RoomBrowsePage() {
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      className="btn btn--secondary"
-                      disabled={waitlistDisabled}
-                      aria-label={waitlistLabel}
-                      title={
-                        !isAuthenticated ? "Sign in to join a waitlist"
-                          : room.currentStatus === "available" ? "Waitlist opens when room is booked"
-                          : "Join the waitlist"
-                      }
-                      onClick={() => handleWaitlistJoin(room)}
+                    {/* Waitlist popover */}
+                    <div
+                      className="book-popover-root"
+                      ref={(el) => { waitlistPopoverRefs.current[room.roomID] = el; }}
                     >
-                      Join waitlist
-                    </button>
+                      <button
+                        type="button"
+                        className="btn btn--secondary"
+                        disabled={waitlistDisabled}
+                        aria-label={waitlistLabel}
+                        aria-haspopup="dialog"
+                        aria-expanded={waitlistPopoverRoomId === room.roomID}
+                        title={
+                          !isAuthenticated ? "Sign in to join a waitlist"
+                            : room.currentStatus === "available" ? "Waitlist opens when room is booked"
+                            : "Join the waitlist"
+                        }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (waitlistDisabled) return;
+                          if (waitlistPopoverRoomId === room.roomID) { closeWaitlistPopover(); return; }
+                          closeBookingPopover();
+                          closeRatingPopover();
+                          setWaitlistNotice(null);
+                          setWaitlistSlotChoiceId(null);
+                          setWaitlistPopoverRoomId(room.roomID);
+                        }}
+                      >
+                        Join waitlist
+                      </button>
+                      {waitlistPopoverRoomId === room.roomID && (
+                        <div
+                          className="booking-popover"
+                          role="dialog"
+                          aria-label="Join waitlist"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <h4 className="booking-popover__title">Join waitlist · today</h4>
+                          <p className="booking-popover__room">
+                            {room.buildingName} {room.roomNumber} · seats {room.capacity}
+                          </p>
+                          <p className="booking-popover__sub">Pick the slot you want.</p>
+                          <ul className="booking-popover__slots" role="listbox" aria-label="Time slots">
+                            {mockTimeSlotsForRoom(room).map((slot) => {
+                              const picked = waitlistSlotChoiceId === slot.id;
+                              return (
+                                <li key={slot.id}>
+                                  <button
+                                    type="button"
+                                    className={`booking-slot${picked ? " booking-slot--picked" : ""}`}
+                                    role="option"
+                                    aria-selected={picked}
+                                    onClick={() => setWaitlistSlotChoiceId(slot.id)}
+                                  >
+                                    {slot.label}
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                          {waitlistNotice && (
+                            <p className="booking-popover__notice" role="status">{waitlistNotice}</p>
+                          )}
+                          <div className="booking-popover__footer">
+                            <button type="button" className="btn btn--ghost btn--small" onClick={() => closeWaitlistPopover()}>
+                              Close
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn--primary btn--small"
+                              disabled={!waitlistSlotChoiceId || waitlistLoading}
+                              onClick={() => handleWaitlistJoin(room)}
+                            >
+                              {waitlistLoading ? "Joining…" : "Join"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {reviewsOpenId === room.roomID && (

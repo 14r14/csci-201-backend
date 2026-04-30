@@ -7,13 +7,13 @@ import com.csci201.backend.entity.Room;
 import com.csci201.backend.entity.User;
 import com.csci201.backend.entity.WaitlistEntry;
 import com.csci201.backend.entity.enums.ReservationStatus;
+import com.csci201.backend.entity.enums.RoomCurrentStatus;
 import com.csci201.backend.repository.ReservationRepository;
 import com.csci201.backend.repository.RoomRepository;
 import com.csci201.backend.repository.UserRepository;
 import com.csci201.backend.repository.WaitlistEntryRepository;
 import jakarta.transaction.Transactional;
-import java.time.Instant;
-import java.time.format.DateTimeParseException;
+
 import java.util.List;
 import org.springframework.stereotype.Service;
 
@@ -45,24 +45,13 @@ public class WaitlistService {
         Room room = roomRepository.findById(request.getRoomId())
                 .orElseThrow(() -> new IllegalArgumentException("Room not found."));
 
-        Instant startTime;
-        try {
-            startTime = Instant.parse(request.getRequestedTimeSlot());
-        } catch (DateTimeParseException e) {
+        boolean isMarkedBooked = room.getCurrentStatus() == RoomCurrentStatus.OCCUPIED
+                || room.getCurrentStatus() == RoomCurrentStatus.RESERVED;
+        boolean hasConfirmedReservation = reservationRepository
+                .existsByRoom_RoomIdAndStatus(request.getRoomId(), ReservationStatus.CONFIRMED);
+        if (!isMarkedBooked && !hasConfirmedReservation) {
             throw new IllegalArgumentException(
-                    "Invalid time format. Use format like 2026-04-20T14:00:00Z."
-            );
-        }
-
-        boolean roomIsBooked = reservationRepository.existsByRoom_RoomIdAndStartTimeAndStatus(
-                request.getRoomId(),
-                startTime,
-                ReservationStatus.CONFIRMED
-        );
-
-        if (!roomIsBooked) {
-            throw new IllegalArgumentException(
-                    "Room is not currently booked for that time. Book it directly instead."
+                    "Room is not currently booked. Book it directly instead."
             );
         }
 

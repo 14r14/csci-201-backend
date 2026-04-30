@@ -24,7 +24,7 @@ export default function LoginPage() {
       if (mode === "login") {
         const res = await authApi.login(username, password);
         login(res.user);
-        navigate("/social");
+        navigate("/rooms");
       } else {
         await authApi.signup(username, password, firstName, lastName);
         setMode("login");
@@ -46,7 +46,7 @@ export default function LoginPage() {
     try {
       const res = await authApi.guest();
       login({ ...res.user, userId: null });
-      navigate("/social");
+      navigate("/rooms");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong");
     } finally {

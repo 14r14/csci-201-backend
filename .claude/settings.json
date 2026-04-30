@@ -9,7 +9,10 @@
       "Bash(pdftotext \"/Users/seungho/Documents/Developer/csci-201-backend/Team 1 Project Documentation.pdf\" /tmp/project_doc.txt)",
       "Bash(/usr/libexec/java_home -v 21)",
       "Bash(JAVA_HOME=$\\(/usr/libexec/java_home -v 21\\) mvn clean verify -q -f /Users/seungho/Documents/Developer/csci-201-backend/pom.xml)",
-      "Bash(JAVA_HOME=$\\(/usr/libexec/java_home -v 21\\) mvn clean verify -f /Users/seungho/Documents/Developer/csci-201-backend/pom.xml)"
+      "Bash(JAVA_HOME=$\\(/usr/libexec/java_home -v 21\\) mvn clean verify -f /Users/seungho/Documents/Developer/csci-201-backend/pom.xml)",
+      "Bash(xargs cat *)",
+      "Bash(JAVA_HOME=$\\(/usr/libexec/java_home\\) mvn clean verify -q)",
+      "Bash(JAVA_HOME=$\\(/usr/libexec/java_home\\) mvn clean verify)"
     ],
     "additionalDirectories": [
       "/Users/seungho"
