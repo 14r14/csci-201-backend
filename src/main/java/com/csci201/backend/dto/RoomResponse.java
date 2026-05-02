@@ -2,6 +2,7 @@ package com.csci201.backend.dto;
 
 import java.util.List;
 
+/** Response payload for a room, including all rating aggregates. */
 public class RoomResponse {
 
     private Long roomId;
@@ -11,8 +12,16 @@ public class RoomResponse {
     private List<String> featureList;
     private String mapLocation;
     private String currentStatus;
+
+    // Overall rating
     private Double averageRating;
     private Integer ratingsCount;
+
+    // Subcategory averages (0.0 when no reviews have supplied that subcategory)
+    private Double avgNoiseRating;
+    private Double avgCleanlinessRating;
+    private Double avgAmenitiesRating;
+
     private long waitlistCount;
 
     public Long getRoomId() { return roomId; }
@@ -41,6 +50,15 @@ public class RoomResponse {
 
     public Integer getRatingsCount() { return ratingsCount; }
     public void setRatingsCount(Integer ratingsCount) { this.ratingsCount = ratingsCount; }
+
+    public Double getAvgNoiseRating() { return avgNoiseRating; }
+    public void setAvgNoiseRating(Double avgNoiseRating) { this.avgNoiseRating = avgNoiseRating; }
+
+    public Double getAvgCleanlinessRating() { return avgCleanlinessRating; }
+    public void setAvgCleanlinessRating(Double avgCleanlinessRating) { this.avgCleanlinessRating = avgCleanlinessRating; }
+
+    public Double getAvgAmenitiesRating() { return avgAmenitiesRating; }
+    public void setAvgAmenitiesRating(Double avgAmenitiesRating) { this.avgAmenitiesRating = avgAmenitiesRating; }
 
     public long getWaitlistCount() { return waitlistCount; }
     public void setWaitlistCount(long waitlistCount) { this.waitlistCount = waitlistCount; }

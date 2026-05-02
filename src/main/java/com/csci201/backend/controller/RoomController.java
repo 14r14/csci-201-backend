@@ -17,11 +17,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/rooms")
 public class RoomController {
 
-    private final RoomRepository roomRepository;
+    private final RoomRepository          roomRepository;
     private final WaitlistEntryRepository waitlistEntryRepository;
 
-    public RoomController(RoomRepository roomRepository, WaitlistEntryRepository waitlistEntryRepository) {
-        this.roomRepository = roomRepository;
+    public RoomController(RoomRepository roomRepository,
+                          WaitlistEntryRepository waitlistEntryRepository) {
+        this.roomRepository          = roomRepository;
         this.waitlistEntryRepository = waitlistEntryRepository;
     }
 
@@ -53,6 +54,10 @@ public class RoomController {
         r.setCurrentStatus(room.getCurrentStatus().name());
         r.setAverageRating(room.getAverageRating());
         r.setRatingsCount(room.getRatingsCount());
+        // Subcategory averages added by V6 migration
+        r.setAvgNoiseRating(room.getAvgNoiseRating());
+        r.setAvgCleanlinessRating(room.getAvgCleanlinessRating());
+        r.setAvgAmenitiesRating(room.getAvgAmenitiesRating());
         r.setWaitlistCount(waitlistEntryRepository.countByRoom_RoomId(room.getRoomId()));
         return r;
     }

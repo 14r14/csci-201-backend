@@ -11,6 +11,18 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
+/**
+ * Represents a bookable study room.
+ *
+ * Relationships:
+ *   Room →(has many)→ Reservation
+ *   Room →(has many)→ Review
+ *
+ * Rating columns (overall + subcategory) are kept denormalized here for fast
+ * reads.  They are updated incrementally on every review write, and
+ * authoritatively recalculated by the nightly scheduled job in
+ * {@link com.csci201.backend.service.RatingRecalculationService}.
+ */
 @Entity
 @Table(
         name = "rooms",
@@ -42,81 +54,65 @@ public class Room {
     @Column(name = "current_status", nullable = false, length = 32)
     private RoomCurrentStatus currentStatus;
 
+    // ── Overall rating aggregates ─────────────────────────────────────────────
+
+    /** Average of the overall 1-5 ratings across all reviews. */
     @Column(name = "average_rating", nullable = false)
     private Double averageRating = 0.0;
 
+    /** Total number of reviews left for this room. */
     @Column(name = "ratings_count", nullable = false)
     private Integer ratingsCount = 0;
 
-    public Long getRoomId() {
-        return roomId;
-    }
+    // ── Subcategory averages (recalculated by RatingRecalculationService) ─────
 
-    public void setRoomId(Long roomId) {
-        this.roomId = roomId;
-    }
+    /** Average noise rating (1-5) across reviews that supplied one. 0 if none. */
+    @Column(name = "avg_noise_rating", nullable = false)
+    private Double avgNoiseRating = 0.0;
 
-    public String getBuildingName() {
-        return buildingName;
-    }
+    /** Average cleanliness rating (1-5). 0 if no reviews supplied one. */
+    @Column(name = "avg_cleanliness_rating", nullable = false)
+    private Double avgCleanlinessRating = 0.0;
 
-    public void setBuildingName(String buildingName) {
-        this.buildingName = buildingName;
-    }
+    /** Average amenities/equipment rating (1-5). 0 if no reviews supplied one. */
+    @Column(name = "avg_amenities_rating", nullable = false)
+    private Double avgAmenitiesRating = 0.0;
 
-    public String getRoomNumber() {
-        return roomNumber;
-    }
+    // ── getters / setters ─────────────────────────────────────────────────────
 
-    public void setRoomNumber(String roomNumber) {
-        this.roomNumber = roomNumber;
-    }
+    public Long getRoomId() { return roomId; }
+    public void setRoomId(Long roomId) { this.roomId = roomId; }
 
-    public Integer getCapacity() {
-        return capacity;
-    }
+    public String getBuildingName() { return buildingName; }
+    public void setBuildingName(String buildingName) { this.buildingName = buildingName; }
 
-    public void setCapacity(Integer capacity) {
-        this.capacity = capacity;
-    }
+    public String getRoomNumber() { return roomNumber; }
+    public void setRoomNumber(String roomNumber) { this.roomNumber = roomNumber; }
 
-    public String getFeatureList() {
-        return featureList;
-    }
+    public Integer getCapacity() { return capacity; }
+    public void setCapacity(Integer capacity) { this.capacity = capacity; }
 
-    public void setFeatureList(String featureList) {
-        this.featureList = featureList;
-    }
+    public String getFeatureList() { return featureList; }
+    public void setFeatureList(String featureList) { this.featureList = featureList; }
 
-    public String getMapLocation() {
-        return mapLocation;
-    }
+    public String getMapLocation() { return mapLocation; }
+    public void setMapLocation(String mapLocation) { this.mapLocation = mapLocation; }
 
-    public void setMapLocation(String mapLocation) {
-        this.mapLocation = mapLocation;
-    }
+    public RoomCurrentStatus getCurrentStatus() { return currentStatus; }
+    public void setCurrentStatus(RoomCurrentStatus currentStatus) { this.currentStatus = currentStatus; }
 
-    public RoomCurrentStatus getCurrentStatus() {
-        return currentStatus;
-    }
+    public Double getAverageRating() { return averageRating; }
+    public void setAverageRating(Double averageRating) { this.averageRating = averageRating; }
 
-    public void setCurrentStatus(RoomCurrentStatus currentStatus) {
-        this.currentStatus = currentStatus;
-    }
+    public Integer getRatingsCount() { return ratingsCount; }
+    public void setRatingsCount(Integer ratingsCount) { this.ratingsCount = ratingsCount; }
 
-    public Double getAverageRating() {
-        return averageRating;
-    }
+    public Double getAvgNoiseRating() { return avgNoiseRating; }
+    public void setAvgNoiseRating(Double avgNoiseRating) { this.avgNoiseRating = avgNoiseRating; }
 
-    public void setAverageRating(Double averageRating) {
-        this.averageRating = averageRating;
-    }
+    public Double getAvgCleanlinessRating() { return avgCleanlinessRating; }
+    public void setAvgCleanlinessRating(Double avgCleanlinessRating) { this.avgCleanlinessRating = avgCleanlinessRating; }
 
-    public Integer getRatingsCount() {
-        return ratingsCount;
-    }
-
-    public void setRatingsCount(Integer ratingsCount) {
-        this.ratingsCount = ratingsCount;
-    }
+    public Double getAvgAmenitiesRating() { return avgAmenitiesRating; }
+    public void setAvgAmenitiesRating(Double avgAmenitiesRating) { this.avgAmenitiesRating = avgAmenitiesRating; }
 }
